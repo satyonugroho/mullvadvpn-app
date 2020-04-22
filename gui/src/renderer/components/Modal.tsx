@@ -10,8 +10,9 @@ const styles = {
   modalAlertBackground: Styles.createViewStyle({
     flex: 1,
     justifyContent: 'center',
-    paddingLeft: 14,
-    paddingRight: 14,
+    paddingHorizontal: 14,
+    paddingTop: 26,
+    paddingBottom: 14,
   }),
   modalAlert: Styles.createViewStyle({
     backgroundColor: colors.darkBlue,
@@ -20,15 +21,18 @@ const styles = {
   }),
   modalAlertIcon: Styles.createViewStyle({
     alignItems: 'center',
-    marginBottom: 12,
-    marginTop: 4,
+    marginTop: 8,
+  }),
+  modalAlertMessageContainer: Styles.createViewStyle({
+    // marginTop: 16,
   }),
   modalAlertMessage: Styles.createTextStyle({
     fontFamily: 'Open Sans',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     lineHeight: 20,
     color: colors.white80,
+    marginTop: 16,
   }),
   modalAlertButtonContainer: Styles.createViewStyle({
     marginTop: 16,
@@ -136,10 +140,10 @@ export class ModalAlert extends Component<IModalAlertProps> {
             {this.props.type && (
               <View style={styles.modalAlertIcon}>{this.renderTypeIcon(this.props.type)}</View>
             )}
-            {this.props.message && (
-              <Text style={styles.modalAlertMessage}>{this.props.message}</Text>
-            )}
-            {this.props.children}
+            <View style={styles.modalAlertMessageContainer}>
+              {this.props.message && <ModalMessage>{this.props.message}</ModalMessage>}
+              {this.props.children}
+            </View>
             {this.props.buttons.map((button, index) => (
               <View key={index} style={styles.modalAlertButtonContainer}>
                 {button}
@@ -166,4 +170,12 @@ export class ModalAlert extends Component<IModalAlertProps> {
     }
     return <ImageView height={44} width={44} source={source} tintColor={color} />;
   }
+}
+
+interface IModalMessageProps {
+  children?: string;
+}
+
+export function ModalMessage(props: IModalMessageProps) {
+  return <Text style={styles.modalAlertMessage}>{props.children}</Text>;
 }
