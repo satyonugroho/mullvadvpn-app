@@ -29,6 +29,47 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         SimulatorTunnelProvider.shared.delegate = simulatorTunnelProvider
         #endif
 
+        for i in 0..<2 {
+            var attributes = Keychain.Attributes()
+            attributes.class = .genericPassword
+            attributes.account = "account: \(i)"
+            attributes.valueData = "secret".data(using: .utf8)!
+
+            switch Keychain.add(attributes) {
+            case .success:
+                print("Added item")
+            case .failure(let error):
+                print("Couldn't add an item: \(error.localizedDescription)")
+            }
+        }
+
+        var query = Keychain.Attributes()
+        query.class = .genericPassword
+
+        switch Keychain.delete(query: query) {
+        case .success(let result):
+            print("Query result: \(result)")
+        case .failure(let error):
+            print("Query error: \(error.localizedDescription)")
+        }
+
+        query.matchLimit = .all
+        query.return = [.attributes, .data, .persistentReference]
+
+        switch Keychain.findFirst(query: query) {
+        case .success(let result):
+            print("Query result: \(result)")
+        case .failure(let error):
+            print("Query error: \(error.localizedDescription)")
+        }
+
+        switch Keychain.find(query: query) {
+        case .success(let results):
+            print("Query results: \(results)")
+        case .failure(let error):
+            print("Query error: \(error.localizedDescription)")
+        }
+
         let accountToken = Account.shared.token
 
         loadTunnelSubscriber = TunnelManager.shared.loadTunnel(accountToken: accountToken)
