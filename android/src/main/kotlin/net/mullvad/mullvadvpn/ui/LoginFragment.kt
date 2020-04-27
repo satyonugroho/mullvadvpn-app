@@ -17,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.mullvad.mullvadvpn.R
 import net.mullvad.mullvadvpn.model.GetAccountDataResult
+import net.mullvad.mullvadvpn.util.JobTracker
 
 class LoginFragment : ServiceDependentFragment(OnNoService.GoToLaunchScreen) {
     private lateinit var title: TextView
@@ -26,11 +27,8 @@ class LoginFragment : ServiceDependentFragment(OnNoService.GoToLaunchScreen) {
     private lateinit var loginFailStatus: View
     private lateinit var accountInput: AccountInput
 
+    private val jobTracker = JobTracker()
     private val loggedIn = CompletableDeferred<Unit>()
-
-    private var loginJob: Deferred<Boolean>? = null
-    private var advanceToNextScreenJob: Job? = null
-    private var fetchHistoryJob: Job? = null
 
     override fun onSafelyCreateView(
         inflater: LayoutInflater,
@@ -58,16 +56,20 @@ class LoginFragment : ServiceDependentFragment(OnNoService.GoToLaunchScreen) {
     }
 
     override fun onSafelyResume() {
-        advanceToNextScreenJob = GlobalScope.launch(Dispatchers.Main) {
+        jobTracker.newUiJob("advanceToNextScreen") {
             loggedIn.join()
             openConnectScreen()
         }
+
         fetchHistory()
     }
 
     override fun onSafelyPause() {
-        advanceToNextScreenJob?.cancel()
-        fetchHistoryJob?.cancel()
+        jobTracker.cancelJob("advanceToNextScreen")
+    }
+
+    override fun onSafelyDestroyView() {
+        jobTracker.cancelAllJobs()
     }
 
     private fun createAccount() {
@@ -91,33 +93,32 @@ class LoginFragment : ServiceDependentFragment(OnNoService.GoToLaunchScreen) {
     }
 
     private fun fetchHistory() {
-        fetchHistoryJob?.cancel()
-        fetchHistoryJob = GlobalScope.launch(Dispatchers.Main) {
-            val history = GlobalScope.async(Dispatchers.Default) {
+        jobTracker.newUiJob("fetchHistory") {
+            accountInput.accountHistory = jobTracker.runOnBackground() {
                 daemon.getAccountHistory()
             }
-            accountInput.accountHistory = history.await()
         }
     }
 
     private fun performLogin(accountToken: String) = GlobalScope.launch(Dispatchers.Main) {
-        loginJob?.cancel()
-        loginJob = GlobalScope.async(Dispatchers.Default) {
-            val accountDataResult = daemon.getAccountData(accountToken)
+        jobTracker.newUiJob("login") {
+            val loginSucceeded = jobTracker.runOnBackground {
+                val accountDataResult = daemon.getAccountData(accountToken)
 
-            when (accountDataResult) {
-                is GetAccountDataResult.Ok, is GetAccountDataResult.RpcError -> {
-                    daemon.setAccount(accountToken)
-                    true
+                when (accountDataResult) {
+                    is GetAccountDataResult.Ok, is GetAccountDataResult.RpcError -> {
+                        daemon.setAccount(accountToken)
+                        true
+                    }
+                    else -> false
                 }
-                else -> false
             }
-        }
 
-        if (loginJob?.await() ?: false) {
-            loggedIn()
-        } else {
-            loginFailure()
+            if (loginSucceeded) {
+                loggedIn()
+            } else {
+                loginFailure()
+            }
         }
     }
 
